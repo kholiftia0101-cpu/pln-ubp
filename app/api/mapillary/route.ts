@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return NextResponse.json({ error: "Koordinat lat/lng tidak valid." }, { status: 400 });
   }
-  if (MAPILLARY_ACCESS_TOKEN === "MLY|28847328674948612|882e904f5c47fbf58c53ec0679401f02") {
-    return NextResponse.json({ error: "Access Token Mapillary belum diisi di app/api/mapillary/route.ts." }, { status: 503 });
-  }
-
+  
   const url = new URL("https://graph.mapillary.com/images");
   url.searchParams.set("access_token", MAPILLARY_ACCESS_TOKEN);
   url.searchParams.set("fields", "id,thumb_1024_url,computed_geometry,captured_at");
