@@ -18,8 +18,12 @@ export async function GET(request: NextRequest) {
   
   const url = new URL("https://graph.mapillary.com/images");
   url.searchParams.set("access_token", MAPILLARY_ACCESS_TOKEN);
-  url.searchParams.set("fields", "id,thumb_1024_url,computed_geometry,captured_at");
-  url.searchParams.set("closeto", `${lng},${lat}`);
+  url.searchParams.set(
+    "fields",
+    "id,thumb_1024_url,computed_geometry,captured_at"
+  );
+  url.searchParams.set("lat", String(lat));
+  url.searchParams.set("lng", String(lng));
   url.searchParams.set("radius", String(radius));
   url.searchParams.set("limit", "10");
 
