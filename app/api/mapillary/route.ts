@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const lat = Number(searchParams.get("lat"));
   const lng = Number(searchParams.get("lng"));
-  const radius = Math.min(Math.max(Number(searchParams.get("radius") || 100), 10), 500);
+  const radius = Math.min(Math.max(Number(searchParams.get("radius") || 50), 10), 50);
 
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return NextResponse.json({ error: "Koordinat lat/lng tidak valid." }, { status: 400 });
