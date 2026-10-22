@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 // Ganti nilai ini dengan Access Token Mapillary milik aplikasi kamu.
 // Jika repository GitHub bersifat publik, token yang ditulis di sini dapat terlihat.
-const MAPILLARY_ACCESS_TOKEN = "PASTE_MAPILLARY_ACCESS_TOKEN_HERE";
+const MAPILLARY_ACCESS_TOKEN = "MLY|28847328674948612|882e904f5c47fbf58c53ec0679401f02";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +15,7 @@ export async function GET(request: NextRequest) {
   if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
     return NextResponse.json({ error: "Koordinat lat/lng tidak valid." }, { status: 400 });
   }
-  if (MAPILLARY_ACCESS_TOKEN === "PASTE_MAPILLARY_ACCESS_TOKEN_HERE") {
+  if (MAPILLARY_ACCESS_TOKEN === "MLY|28847328674948612|882e904f5c47fbf58c53ec0679401f02") {
     return NextResponse.json({ error: "Access Token Mapillary belum diisi di app/api/mapillary/route.ts." }, { status: 503 });
   }
 
