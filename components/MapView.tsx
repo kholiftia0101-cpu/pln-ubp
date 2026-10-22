@@ -1955,31 +1955,26 @@ export default function MapView({
                 padding: 0,
                 border: streetViewPicking ? "1px solid #087f8c" : "1px solid #d7e0e5",
                 borderRadius: 6,
-                background: streetViewPicking ? "#e0f5f6" : "#fff",
-                color: streetViewPicking ? "#087f8c" : "#29485d",
+                background: streetViewPicking ? "#29485d" : "#29485d",
+                color: "#fff",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
                 cursor: "pointer",
               }}
             >
               <svg
-                width="20"
-                height="20"
+                width="22"
+                height="22"
                 viewBox="0 0 24 24"
-                fill="none"
                 aria-hidden="true"
               >
+                {/* Ikon orang berjalan satu warna putih */}
+                <circle cx="13.2" cy="4.2" r="2.5" fill="#fff" />
                 <path
-                  d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"
-                  stroke="currentColor"
-                  strokeWidth="1.8"
+                  d="M10.5 7.2c.8-.8 2.1-1.1 3.2-.6l2.1 1.1 1.6 3.3-2.1 1-1.2-2.3-1.4-.7-.6 4.2 3.1 2.5 2.5 5.1-2.2 1-2.7-4.4-3.4-2.2-1.6 3.5-2.1-.9 2.2-5.1.8-4.3-2.1 2.5-2.2-1.3 3.1-4.2c.3-.4.6-.6 1-.7Z"
+                  fill="#fff"
+                  stroke="#fff"
+                  strokeWidth="0.55"
                   strokeLinejoin="round"
-                />
-                <circle cx="12" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
-                <path
-                  d="M8.4 16.2h7.2"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
                 />
               </svg>
             </button>
