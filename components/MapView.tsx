@@ -180,6 +180,9 @@ export default function MapView({
   const [streetViewError, setStreetViewError] = useState("");
   const [streetViewImages, setStreetViewImages] = useState<Array<{ id: string; thumb_1024_url?: string; computed_geometry?: { coordinates?: [number, number] }; captured_at?: number }>>([]);
   const [streetViewIndex, setStreetViewIndex] = useState(0);
+  const [streetViewToken, setStreetViewToken] = useState("");
+  const mapillaryViewerContainerRef = useRef<HTMLDivElement>(null);
+  const mapillaryViewerRef = useRef<{ remove: () => void } | null>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -229,7 +232,10 @@ export default function MapView({
 
     document.addEventListener("mousedown", handleOutside);
     document.addEventListener("touchstart", handleOutside);
-    return () => {
+
+
+
+  return () => {
       document.removeEventListener("mousedown", handleOutside);
       document.removeEventListener("touchstart", handleOutside);
     };
@@ -282,25 +288,22 @@ export default function MapView({
 
     mapRef.current = map;
 
-    map.on("click", async (event) => {
+    map.on("click", (event) => {
       if (!streetViewPickRef.current) return;
       streetViewPickRef.current = false;
       setStreetViewPicking(false);
-      setStreetViewLoading(true);
+      setStreetViewLoading(false);
       setStreetViewError("");
       setStreetViewImages([]);
       setStreetViewIndex(0);
-      try {
-        const response = await fetch(`/api/mapillary?lat=${event.lngLat.lat}&lng=${event.lngLat.lng}`);
-        const result = await response.json();
-        if (!response.ok) throw new Error(result.error || "Gagal mencari foto Mapillary.");
-        if (!result.data?.length) throw new Error("Belum ada foto Mapillary di sekitar titik ini. Coba titik lain atau area yang lebih luas.");
-        setStreetViewImages(result.data);
-      } catch (error) {
-        setStreetViewError(error instanceof Error ? error.message : "Gagal memuat foto Street View.");
-      } finally {
-        setStreetViewLoading(false);
-      }
+      setStreetViewToken("");
+      mapillaryViewerRef.current?.remove();
+      mapillaryViewerRef.current = null;
+
+      // Google Maps opens directly at the selected coordinates; no API key required.
+      const { lat, lng } = event.lngLat;
+      const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
+      window.open(url, "_blank", "noopener,noreferrer");
     });
 
     setZoomLevel(map.getZoom());
@@ -1256,6 +1259,39 @@ export default function MapView({
     setShowSearchSuggestions(false);
   }
 
+  useEffect(() => {
+    let cancelled = false;
+    const imageId = streetViewImages[streetViewIndex]?.id;
+
+    if (!imageId || !streetViewToken || !mapillaryViewerContainerRef.current) {
+      mapillaryViewerRef.current?.remove();
+      mapillaryViewerRef.current = null;
+      return;
+    }
+
+    mapillaryViewerRef.current?.remove();
+    mapillaryViewerRef.current = null;
+
+    import("mapillary-js").then(({ Viewer }) => {
+      if (cancelled || !mapillaryViewerContainerRef.current) return;
+      const viewer = new Viewer({
+        accessToken: streetViewToken,
+        container: mapillaryViewerContainerRef.current,
+        imageId,
+      });
+      mapillaryViewerRef.current = viewer;
+    }).catch((error) => {
+      console.error("Gagal memuat MapillaryJS:", error);
+      setStreetViewError("Viewer Street View gagal dimuat. Coba refresh halaman.");
+    });
+
+    return () => {
+      cancelled = true;
+      mapillaryViewerRef.current?.remove();
+      mapillaryViewerRef.current = null;
+    };
+  }, [streetViewImages, streetViewIndex, streetViewToken]);
+
   return (
     <main className="app-shell">
       <header className="topbar" style={{ position: "relative", zIndex: 5000 }}> 
@@ -1654,7 +1690,7 @@ export default function MapView({
 
                           if (!item) return null;
 
-                          return (
+  return (
                             <label
                               className="layer-row"
                               key={item.key}
@@ -1937,12 +1973,9 @@ export default function MapView({
 
           <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, maxWidth: "min(360px, calc(100% - 32px))" }}>
             <button type="button" onClick={() => { const next = !streetViewPicking; streetViewPickRef.current = next; setStreetViewPicking(next); setStreetViewError(""); }} style={{ border: 0, borderRadius: 9, padding: "10px 14px", background: streetViewPicking ? "#087f8c" : "#fff", color: streetViewPicking ? "#fff" : "#29485d", fontWeight: 700, fontSize: 12, boxShadow: "0 2px 10px #0002", cursor: "pointer" }}>
-              {streetViewPicking ? "Klik lokasi pada peta…" : "📷 Street View"}
+              {streetViewPicking ? "Klik lokasi untuk membuka Google Street View…" : "📍 Google Street View"}
             </button>
-            {(streetViewLoading || streetViewError || streetViewImages.length > 0) && <div style={{ width: "min(340px, calc(100vw - 40px))", background: "#fff", borderRadius: 10, boxShadow: "0 3px 14px #0003", overflow: "hidden", color: "#29485d" }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 11px", borderBottom: "1px solid #e8eef1", fontSize: 12, fontWeight: 700 }}><span>Mapillary Street View</span><button type="button" aria-label="Tutup Street View" onClick={() => { setStreetViewImages([]); setStreetViewError(""); }} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 18, color: "#64748b" }}>×</button></div>
-              {streetViewLoading ? <div style={{ padding: 16, fontSize: 12 }}>Mencari foto terdekat…</div> : streetViewError ? <div style={{ padding: 12, fontSize: 12, lineHeight: 1.5 }}>{streetViewError}</div> : <><img src={streetViewImages[streetViewIndex]?.thumb_1024_url} alt="Foto jalan dari Mapillary" style={{ display: "block", width: "100%", maxHeight: 230, objectFit: "contain", background: "#eef2f4" }} /><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: 9, fontSize: 11 }}><span>Foto {streetViewIndex + 1} dari {streetViewImages.length}</span><div style={{ display: "flex", gap: 6 }}><button type="button" disabled={streetViewIndex === 0} onClick={() => setStreetViewIndex(i => i - 1)} style={{ padding: "5px 8px", border: "1px solid #d8e1e6", borderRadius: 6, background: "white" }}>Sebelumnya</button><button type="button" disabled={streetViewIndex >= streetViewImages.length - 1} onClick={() => setStreetViewIndex(i => i + 1)} style={{ padding: "5px 8px", border: "1px solid #d8e1e6", borderRadius: 6, background: "white" }}>Berikutnya</button></div></div><div style={{ padding: "0 10px 10px", fontSize: 10 }}><a href={`https://www.mapillary.com/app/?pKey=${streetViewImages[streetViewIndex]?.id}`} target="_blank" rel="noreferrer" style={{ color: "#087f8c" }}>Buka foto di Mapillary ↗</a></div></>}
-            </div>}
+
           </div>
 
           <div className="map-tools-stack">
