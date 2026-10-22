@@ -176,13 +176,6 @@ export default function MapView({
   const mapRef = useRef<MapLibreMap | null>(null);
   const streetViewPickRef = useRef(false);
   const [streetViewPicking, setStreetViewPicking] = useState(false);
-  const [streetViewLoading, setStreetViewLoading] = useState(false);
-  const [streetViewError, setStreetViewError] = useState("");
-  const [streetViewImages, setStreetViewImages] = useState<Array<{ id: string; thumb_1024_url?: string; computed_geometry?: { coordinates?: [number, number] }; captured_at?: number }>>([]);
-  const [streetViewIndex, setStreetViewIndex] = useState(0);
-  const [streetViewToken, setStreetViewToken] = useState("");
-  const mapillaryViewerContainerRef = useRef<HTMLDivElement>(null);
-  const mapillaryViewerRef = useRef<{ remove: () => void } | null>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -292,13 +285,6 @@ export default function MapView({
       if (!streetViewPickRef.current) return;
       streetViewPickRef.current = false;
       setStreetViewPicking(false);
-      setStreetViewLoading(false);
-      setStreetViewError("");
-      setStreetViewImages([]);
-      setStreetViewIndex(0);
-      setStreetViewToken("");
-      mapillaryViewerRef.current?.remove();
-      mapillaryViewerRef.current = null;
 
       // Google Maps opens directly at the selected coordinates; no API key required.
       const { lat, lng } = event.lngLat;
@@ -1259,39 +1245,6 @@ export default function MapView({
     setShowSearchSuggestions(false);
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    const imageId = streetViewImages[streetViewIndex]?.id;
-
-    if (!imageId || !streetViewToken || !mapillaryViewerContainerRef.current) {
-      mapillaryViewerRef.current?.remove();
-      mapillaryViewerRef.current = null;
-      return;
-    }
-
-    mapillaryViewerRef.current?.remove();
-    mapillaryViewerRef.current = null;
-
-    import("mapillary-js").then(({ Viewer }) => {
-      if (cancelled || !mapillaryViewerContainerRef.current) return;
-      const viewer = new Viewer({
-        accessToken: streetViewToken,
-        container: mapillaryViewerContainerRef.current,
-        imageId,
-      });
-      mapillaryViewerRef.current = viewer;
-    }).catch((error) => {
-      console.error("Gagal memuat MapillaryJS:", error);
-      setStreetViewError("Viewer Street View gagal dimuat. Coba refresh halaman.");
-    });
-
-    return () => {
-      cancelled = true;
-      mapillaryViewerRef.current?.remove();
-      mapillaryViewerRef.current = null;
-    };
-  }, [streetViewImages, streetViewIndex, streetViewToken]);
-
   return (
     <main className="app-shell">
       <header className="topbar" style={{ position: "relative", zIndex: 5000 }}> 
@@ -1972,7 +1925,7 @@ export default function MapView({
           </div>
 
           <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, maxWidth: "min(360px, calc(100% - 32px))" }}>
-            <button type="button" onClick={() => { const next = !streetViewPicking; streetViewPickRef.current = next; setStreetViewPicking(next); setStreetViewError(""); }} style={{ border: 0, borderRadius: 9, padding: "10px 14px", background: streetViewPicking ? "#087f8c" : "#fff", color: streetViewPicking ? "#fff" : "#29485d", fontWeight: 700, fontSize: 12, boxShadow: "0 2px 10px #0002", cursor: "pointer" }}>
+            <button type="button" onClick={() => { const next = !streetViewPicking; streetViewPickRef.current = next; setStreetViewPicking(next); }} style={{ border: 0, borderRadius: 9, padding: "10px 14px", background: streetViewPicking ? "#087f8c" : "#fff", color: streetViewPicking ? "#fff" : "#29485d", fontWeight: 700, fontSize: 12, boxShadow: "0 2px 10px #0002", cursor: "pointer" }}>
               {streetViewPicking ? "Klik lokasi untuk membuka Google Street View…" : "📍 Google Street View"}
             </button>
 
