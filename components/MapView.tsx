@@ -1924,11 +1924,84 @@ export default function MapView({
             Zoom: <strong>{zoomLevel.toFixed(2)}</strong>
           </div>
 
-          <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, maxWidth: "min(360px, calc(100% - 32px))" }}>
-            <button type="button" onClick={() => { const next = !streetViewPicking; streetViewPickRef.current = next; setStreetViewPicking(next); }} style={{ border: 0, borderRadius: 9, padding: "10px 14px", background: streetViewPicking ? "#087f8c" : "#fff", color: streetViewPicking ? "#fff" : "#29485d", fontWeight: 700, fontSize: 12, boxShadow: "0 2px 10px #0002", cursor: "pointer" }}>
-              {streetViewPicking ? "Klik lokasi untuk membuka Google Street View…" : "📍 Google Street View"}
+          <div
+            style={{
+              position: "absolute",
+              right: 16,
+              bottom: 158,
+              zIndex: 30,
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => {
+                const next = !streetViewPicking;
+                streetViewPickRef.current = next;
+                setStreetViewPicking(next);
+              }}
+              title={
+                streetViewPicking
+                  ? "Klik lokasi pada peta untuk membuka Google Street View"
+                  : "Google Street View"
+              }
+              aria-label="Google Street View"
+              aria-pressed={streetViewPicking}
+              style={{
+                width: 36,
+                height: 36,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: 0,
+                border: streetViewPicking ? "1px solid #087f8c" : "1px solid #d7e0e5",
+                borderRadius: 6,
+                background: streetViewPicking ? "#e0f5f6" : "#fff",
+                color: streetViewPicking ? "#087f8c" : "#29485d",
+                boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
+                cursor: "pointer",
+              }}
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                aria-hidden="true"
+              >
+                <path
+                  d="M12 21s7-6.1 7-12a7 7 0 1 0-14 0c0 5.9 7 12 7 12Z"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinejoin="round"
+                />
+                <circle cx="12" cy="9" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+                <path
+                  d="M8.4 16.2h7.2"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
             </button>
-
+            {streetViewPicking && (
+              <div
+                style={{
+                  position: "absolute",
+                  right: 44,
+                  top: 0,
+                  width: 220,
+                  padding: "9px 11px",
+                  borderRadius: 8,
+                  background: "rgba(255,255,255,0.97)",
+                  color: "#29485d",
+                  fontSize: 12,
+                  lineHeight: 1.4,
+                  boxShadow: "0 2px 10px rgba(0,0,0,0.16)",
+                }}
+              >
+                Klik lokasi pada peta untuk membuka Google Street View.
+              </div>
+            )}
           </div>
 
           <div className="map-tools-stack">
