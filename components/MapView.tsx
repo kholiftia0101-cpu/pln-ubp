@@ -174,6 +174,12 @@ export default function MapView({
   const mapContainer = useRef<HTMLDivElement>(null);
 
   const mapRef = useRef<MapLibreMap | null>(null);
+  const streetViewPickRef = useRef(false);
+  const [streetViewPicking, setStreetViewPicking] = useState(false);
+  const [streetViewLoading, setStreetViewLoading] = useState(false);
+  const [streetViewError, setStreetViewError] = useState("");
+  const [streetViewImages, setStreetViewImages] = useState<Array<{ id: string; thumb_1024_url?: string; computed_geometry?: { coordinates?: [number, number] }; captured_at?: number }>>([]);
+  const [streetViewIndex, setStreetViewIndex] = useState(0);
   const accountRef = useRef<HTMLDivElement>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -275,6 +281,27 @@ export default function MapView({
     });
 
     mapRef.current = map;
+
+    map.on("click", async (event) => {
+      if (!streetViewPickRef.current) return;
+      streetViewPickRef.current = false;
+      setStreetViewPicking(false);
+      setStreetViewLoading(true);
+      setStreetViewError("");
+      setStreetViewImages([]);
+      setStreetViewIndex(0);
+      try {
+        const response = await fetch(`/api/mapillary?lat=${event.lngLat.lat}&lng=${event.lngLat.lng}`);
+        const result = await response.json();
+        if (!response.ok) throw new Error(result.error || "Gagal mencari foto Mapillary.");
+        if (!result.data?.length) throw new Error("Belum ada foto Mapillary di sekitar titik ini. Coba titik lain atau area yang lebih luas.");
+        setStreetViewImages(result.data);
+      } catch (error) {
+        setStreetViewError(error instanceof Error ? error.message : "Gagal memuat foto Street View.");
+      } finally {
+        setStreetViewLoading(false);
+      }
+    });
 
     setZoomLevel(map.getZoom());
 
@@ -1906,6 +1933,16 @@ export default function MapView({
             }}
           >
             Zoom: <strong>{zoomLevel.toFixed(2)}</strong>
+          </div>
+
+          <div style={{ position: "absolute", top: 16, right: 16, zIndex: 30, display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8, maxWidth: "min(360px, calc(100% - 32px))" }}>
+            <button type="button" onClick={() => { const next = !streetViewPicking; streetViewPickRef.current = next; setStreetViewPicking(next); setStreetViewError(""); }} style={{ border: 0, borderRadius: 9, padding: "10px 14px", background: streetViewPicking ? "#087f8c" : "#fff", color: streetViewPicking ? "#fff" : "#29485d", fontWeight: 700, fontSize: 12, boxShadow: "0 2px 10px #0002", cursor: "pointer" }}>
+              {streetViewPicking ? "Klik lokasi pada peta…" : "📷 Street View"}
+            </button>
+            {(streetViewLoading || streetViewError || streetViewImages.length > 0) && <div style={{ width: "min(340px, calc(100vw - 40px))", background: "#fff", borderRadius: 10, boxShadow: "0 3px 14px #0003", overflow: "hidden", color: "#29485d" }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "9px 11px", borderBottom: "1px solid #e8eef1", fontSize: 12, fontWeight: 700 }}><span>Mapillary Street View</span><button type="button" aria-label="Tutup Street View" onClick={() => { setStreetViewImages([]); setStreetViewError(""); }} style={{ border: 0, background: "transparent", cursor: "pointer", fontSize: 18, color: "#64748b" }}>×</button></div>
+              {streetViewLoading ? <div style={{ padding: 16, fontSize: 12 }}>Mencari foto terdekat…</div> : streetViewError ? <div style={{ padding: 12, fontSize: 12, lineHeight: 1.5 }}>{streetViewError}</div> : <><img src={streetViewImages[streetViewIndex]?.thumb_1024_url} alt="Foto jalan dari Mapillary" style={{ display: "block", width: "100%", maxHeight: 230, objectFit: "contain", background: "#eef2f4" }} /><div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: 9, fontSize: 11 }}><span>Foto {streetViewIndex + 1} dari {streetViewImages.length}</span><div style={{ display: "flex", gap: 6 }}><button type="button" disabled={streetViewIndex === 0} onClick={() => setStreetViewIndex(i => i - 1)} style={{ padding: "5px 8px", border: "1px solid #d8e1e6", borderRadius: 6, background: "white" }}>Sebelumnya</button><button type="button" disabled={streetViewIndex >= streetViewImages.length - 1} onClick={() => setStreetViewIndex(i => i + 1)} style={{ padding: "5px 8px", border: "1px solid #d8e1e6", borderRadius: 6, background: "white" }}>Berikutnya</button></div></div><div style={{ padding: "0 10px 10px", fontSize: 10 }}><a href={`https://www.mapillary.com/app/?pKey=${streetViewImages[streetViewIndex]?.id}`} target="_blank" rel="noreferrer" style={{ color: "#087f8c" }}>Buka foto di Mapillary ↗</a></div></>}
+            </div>}
           </div>
 
           <div className="map-tools-stack">
