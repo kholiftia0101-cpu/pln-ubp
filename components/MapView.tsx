@@ -978,15 +978,12 @@ export default function MapView({
     }
 
     const sourceId = kind === "aws" ? "terrain-dem-aws" : "terrain-dem-dtm";
-    const dtmTileJSON = process.env.NEXT_PUBLIC_DTM_TERRAIN_TILEJSON_URL?.trim();
-    const dtmEncoding = process.env.NEXT_PUBLIC_DTM_TERRAIN_ENCODING?.trim() || "mapbox";
-
-    if (kind === "dtm" && !dtmTileJSON) {
-      window.alert(
-        "DTM Lokal belum dikonfigurasi. Isi NEXT_PUBLIC_DTM_TERRAIN_TILEJSON_URL di .env.local dengan URL TileJSON DEM lokal. Pastikan tile DTM sudah dikodekan sebagai Terrain RGB (mapbox) atau Terrarium.",
-      );
-      return;
-    }
+    // DTM tiles from Cloudflare R2 (XYZ PNG). Set the base URL in .env.local.
+    const dtmTilesBase =
+      process.env.NEXT_PUBLIC_DTM_TERRAIN_TILES_BASE?.trim() ||
+      "/api/dtm";
+    const dtmEncoding =
+      process.env.NEXT_PUBLIC_DTM_TERRAIN_ENCODING?.trim() || "terrarium";
 
     try {
       if (!map.getSource(sourceId)) {
@@ -1006,9 +1003,12 @@ export default function MapView({
         } else {
           map.addSource(sourceId, {
             type: "raster-dem",
-            url: dtmTileJSON,
+            tiles: [`${dtmTilesBase}/{z}/{x}/{y}.png`],
             tileSize: 256,
-            encoding: dtmEncoding === "terrarium" ? "terrarium" : "mapbox",
+            encoding: dtmEncoding === "mapbox" ? "mapbox" : "terrarium",
+            minzoom: 14,
+            maxzoom: 20,
+            attribution: "DTM Lokal: Cloudflare R2",
           });
         }
       }
@@ -1843,13 +1843,14 @@ export default function MapView({
 
                     <button
                       type="button"
-                      onClick={() => window.alert("DTM Lokal belum tersedia.")}
-                      aria-pressed={false}
+                      onClick={() => activateTerrain("dtm")}
+                      aria-pressed={activeTerrain === "dtm"}
                       style={{
                         display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px 10px",
                         textAlign: "left", borderRadius: 10,
-                        border: "1px solid #dce7eb",
-                        background: "#fff", cursor: "pointer", color: "#284456",
+                        border: activeTerrain === "dtm" ? "2px solid #159bb2" : "1px solid #dce7eb",
+                        background: activeTerrain === "dtm" ? "#f2fafb" : "#fff",
+                        cursor: "pointer", color: "#284456",
                       }}
                     >
                       <span style={{ width: 36, height: 36, flex: "0 0 36px", borderRadius: 8, display: "grid", placeItems: "center", background: "#f0f4f5", color: "#526b76" }} aria-hidden="true">
@@ -1862,7 +1863,6 @@ export default function MapView({
                       <span style={{ display: "block", flex: 1, minWidth: 0 }}>
                         <strong style={{ display: "block", fontSize: 13 }}>DTM Lokal</strong>
                       </span>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "#7c8991" }}>Belum tersedia</span>
                     </button>
 
                     <button
