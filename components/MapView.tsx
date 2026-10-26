@@ -181,6 +181,7 @@ export default function MapView({
   const measureModeRef = useRef<"length" | "width" | "height" | null>(null);
   const measurePointsRef = useRef<[number, number, number | null][]>([]);
   const measureMarkersRef = useRef<Marker[]>([]);
+  const featurePopupRef = useRef<maplibregl.Popup | null>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -742,6 +743,13 @@ export default function MapView({
         const popupLayerIds = [fillId, lineId, pointId];
 
         map.on("click", popupLayerIds, (event) => {
+          // Saat Measure aktif, klik layer hanya menjadi input titik ukur.
+          // Jangan munculkan popup atribut yang menutupi peta.
+          if (measureModeRef.current !== null) {
+            event.preventDefault();
+            return;
+          }
+
           const feature = event.features?.[0];
 
           if (!feature) return;
@@ -769,17 +777,15 @@ export default function MapView({
 
           const popupHtml = `<div style="font-family:Arial,sans-serif;min-width:160px;max-width:240px;color:#1f2937;"><div style="font-size:12px;font-weight:700;padding:1px 1px 5px;margin-bottom:3px;color:#29485d;letter-spacing:-0.2px;">${escapePopupHtml(item.label)}</div><div style="max-height:180px;overflow:auto;font-size:10px;scrollbar-width:thin;">${rows}</div>${entries.length > 30 ? `<div style="font-size:10px;color:#718096;padding-top:5px;">Menampilkan 30 dari ${entries.length} atribut.</div>` : ""}</div>`;
 
-          new maplibregl.Popup({
+          featurePopupRef.current?.remove();
+          featurePopupRef.current = new maplibregl.Popup({
             closeButton: true,
             closeOnClick: true,
             maxWidth: "260px",
             className: "soft-attribute-popup",
           })
-
             .setLngLat(event.lngLat)
-
             .setHTML(popupHtml)
-
             .addTo(map);
         });
 
@@ -2125,6 +2131,9 @@ export default function MapView({
                 measureMarkersRef.current.forEach((marker) => marker.remove());
                 measureMarkersRef.current = [];
                 if (nextMode) {
+                  // Tutup popup yang sedang terbuka dan nonaktifkan Street View.
+                  featurePopupRef.current?.remove();
+                  featurePopupRef.current = null;
                   streetViewPickRef.current = false;
                   setStreetViewPicking(false);
                 }
@@ -2139,7 +2148,7 @@ export default function MapView({
                 cursor: "pointer",
               }}
             >
-              {measureMode ? "Measure aktif" : "Measure"}
+              {measureMode ? "Ukur aktif" : "Ukur"}
             </button>
             {measureMode && (
               <>
@@ -2163,6 +2172,8 @@ export default function MapView({
                     });
                     measureMarkersRef.current.forEach((marker) => marker.remove());
                     measureMarkersRef.current = [];
+                    featurePopupRef.current?.remove();
+                    featurePopupRef.current = null;
                   }}
                   style={{
                     marginTop: 7,
