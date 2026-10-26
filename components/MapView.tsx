@@ -2139,7 +2139,7 @@ export default function MapView({
                 cursor: "pointer",
               }}
             >
-              {measureMode ? "Ukur aktif" : "Ukur"}
+              {measureMode ? "Measure aktif" : "Measure"}
             </button>
             {measureMode && (
               <>
