@@ -318,17 +318,18 @@ export default function MapView({
           layout: {
             "symbol-placement": "line",
             "text-field": ["get", "label"],
-            "text-size": 12,
+            "text-size": 14,
             "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
             "text-keep-upright": true,
             "text-offset": [0, -0.7],
-            "text-line-height": 1.15,
-            "text-max-width": 14,
+            "text-max-width": 28,
+            "text-allow-overlap": true,
+            "text-ignore-placement": true,
           },
           paint: {
             "text-color": "#164e49",
             "text-halo-color": "rgba(255,255,255,0.96)",
-            "text-halo-width": 2,
+            "text-halo-width": 3,
           },
         });
       }
@@ -372,7 +373,11 @@ export default function MapView({
                   a[2] == null || b[2] == null
                     ? "ΔH: DEM tidak tersedia"
                     : `ΔH: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
-                return `Panjang ${distanceText}\n${heightText}`;
+                const readableHeight =
+                  a[2] == null || b[2] == null
+                    ? "Beda tinggi: DEM tidak tersedia"
+                    : `Beda tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
+                return `Panjang: ${distanceText}  |  ${readableHeight}`;
               })()
             : "";
         if (lineSource) {
