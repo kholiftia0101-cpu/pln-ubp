@@ -349,98 +349,89 @@ export default function MapView({
           streetViewPickRef.current = false;
           setStreetViewPicking(false);
         }
+
         const { lng, lat } = event.lngLat;
         const sampled = map.queryTerrainElevation([lng, lat]);
         const elevation =
           typeof sampled === "number" && Number.isFinite(sampled) ? sampled : null;
-        const point: [number, number, number | null] = [lng, lat, elevation];
-        const previous = measurePointsRef.current;
-
-        // Start a fresh segment after two points; keep only the current measurement.
-        const next = previous.length >= 2 ? [point] : [...previous, point];
+        const next = [...measurePointsRef.current, [lng, lat, elevation] as [number, number, number | null]];
         measurePointsRef.current = next;
 
-        const lineSource = map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined;
+        const toRad = (value: number) => (value * Math.PI) / 180;
+        const segmentDistance = (
+          a: [number, number, number | null],
+          b: [number, number, number | null],
+        ) => {
+          const dLat = toRad(b[1] - a[1]);
+          const dLng = toRad(b[0] - a[0]);
+          const h =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(toRad(a[1])) * Math.cos(toRad(b[1])) * Math.sin(dLng / 2) ** 2;
+          return 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
+        };
+
+        const totalMeters = next.slice(1).reduce(
+          (sum, point, index) => sum + segmentDistance(next[index], point),
+          0,
+        );
+        const formatDistance = (meters: number) =>
+          meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${meters.toFixed(2)} m`;
+
+        const first = next[0];
+        const last = next[next.length - 1];
+        const height =
+          first[2] == null || last[2] == null
+            ? "Beda tinggi: DEM tidak tersedia"
+            : `Beda tinggi: ${Math.abs(last[2] - first[2]).toFixed(2)} m`;
         const lineLabel =
           next.length >= 2
-            ? (() => {
-                const [a, b] = [next[0], next[1]];
-                const rad = (v: number) => (v * Math.PI) / 180;
-                const dLat = rad(b[1] - a[1]);
-                const dLng = rad(b[0] - a[0]);
-                const h =
-                  Math.sin(dLat / 2) ** 2 +
-                  Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
-                const meters = 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
-                const distanceText =
-                  meters >= 1000
-                    ? `${(meters / 1000).toFixed(2)} km`
-                    : `${meters.toFixed(2)} m`;
-                const readableHeight =
-                  a[2] == null || b[2] == null
-                    ? "Beda tinggi: Aktifkan Terrain 3D!"
-                    : `Beda tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
-                return `Panjang: ${distanceText}\n${readableHeight}`;
-              })()
-            : "";
-        if (lineSource) {
-          lineSource.setData({
-            type: "Feature",
-            properties: { label: lineLabel },
-            geometry: {
-              type: "LineString",
-              coordinates: next.map(([x, y]) => [x, y]),
-            },
-          });
+            ? `Panjang: ${formatDistance(totalMeters)}\\n${height}`
+            : "Klik peta untuk menambahkan titik";
+
+        (map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined)?.setData({
+          type: "Feature",
+          properties: { label: lineLabel },
+          geometry: {
+            type: "LineString",
+            coordinates: next.map(([x, y]) => [x, y]),
+          },
+        });
+
+        // Keep the label on the path's midpoint, computed along its total length.
+        let labelCoordinate: [number, number] = [first[0], first[1]];
+        if (next.length >= 2 && totalMeters > 0) {
+          const target = totalMeters / 2;
+          let accumulated = 0;
+          for (let i = 1; i < next.length; i++) {
+            const segment = segmentDistance(next[i - 1], next[i]);
+            if (accumulated + segment >= target) {
+              const fraction = segment > 0 ? (target - accumulated) / segment : 0;
+              labelCoordinate = [
+                next[i - 1][0] + (next[i][0] - next[i - 1][0]) * fraction,
+                next[i - 1][1] + (next[i][1] - next[i - 1][1]) * fraction,
+              ];
+              break;
+            }
+            accumulated += segment;
+          }
         }
-        const labelSource = map.getSource("measure-label-point") as
-          | maplibregl.GeoJSONSource
-          | undefined;
-        labelSource?.setData({
+
+        (map.getSource("measure-label-point") as maplibregl.GeoJSONSource | undefined)?.setData({
           type: "FeatureCollection",
           features:
             next.length >= 2
               ? [{
                   type: "Feature",
                   properties: { label: lineLabel },
-                  geometry: {
-                    type: "Point",
-                    coordinates: [
-                      (next[0][0] + next[1][0]) / 2,
-                      (next[0][1] + next[1][1]) / 2,
-                    ],
-                  },
+                  geometry: { type: "Point", coordinates: labelCoordinate },
                 }]
               : [],
         });
 
-        if (next.length === 1) {
-          setMeasureResult("Klik titik kedua untuk menampilkan hasil.");
+        if (next.length < 2) {
+          setMeasureResult("Klik titik berikutnya untuk mulai mengukur.");
         } else {
-          const [a, b] = next;
-          const toRad = (v: number) => (v * Math.PI) / 180;
-          const R = 6371008.8;
-          const dLat = toRad(b[1] - a[1]);
-          const dLng = toRad(b[0] - a[0]);
-          const lat1 = toRad(a[1]);
-          const lat2 = toRad(b[1]);
-          const h =
-            Math.sin(dLat / 2) ** 2 +
-            Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-          const distance = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-          const distanceText =
-            distance >= 1000
-              ? `${(distance / 1000).toFixed(3)} km`
-              : `${distance.toFixed(2)} m`;
-          const heightText =
-            a[2] == null || b[2] == null
-              ? "DEM belum terbaca (aktifkan Terrain/DEM)"
-              : `ΔH ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
-          // A two-point line provides length and elevation difference.
-          // Width requires a third point or a defined polygon boundary.
-          setMeasureResult(
-            `Panjang: ${distanceText}\nBeda tinggi: ${heightText}`,
-          );
+          setMeasureResult(`Panjang: ${formatDistance(totalMeters)}\\n${height}`);
         }
         return;
       }
