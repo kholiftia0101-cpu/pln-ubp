@@ -286,49 +286,88 @@ export default function MapView({
 
     mapRef.current = map;
 
+    map.on("load", () => {
+      if (!map.getSource("measure-line")) {
+        map.addSource("measure-line", {
+          type: "geojson",
+          data: {
+            type: "Feature",
+            properties: {},
+            geometry: { type: "LineString", coordinates: [] },
+          },
+        });
+      }
+      if (!map.getLayer("measure-line-layer")) {
+        map.addLayer({
+          id: "measure-line-layer",
+          type: "line",
+          source: "measure-line",
+          paint: {
+            "line-color": "#0f766e",
+            "line-width": 4,
+            "line-dasharray": [2, 1],
+          },
+        });
+      }
+    });
+
     map.on("click", (event) => {
       const activeMeasure = measureModeRef.current;
       if (activeMeasure) {
-        // Measurement clicks are isolated from Street View and feature popup actions.
         if (streetViewPickRef.current) {
           streetViewPickRef.current = false;
           setStreetViewPicking(false);
         }
         const { lng, lat } = event.lngLat;
-        let elevation: number | null = null;
-        if (activeMeasure === "height") {
-          const sampled = map.queryTerrainElevation([lng, lat]);
-          elevation = typeof sampled === "number" && Number.isFinite(sampled) ? sampled : null;
-        }
-        const next = [...measurePointsRef.current, [lng, lat, elevation] as [number, number, number | null]];
+        const sampled = map.queryTerrainElevation([lng, lat]);
+        const elevation =
+          typeof sampled === "number" && Number.isFinite(sampled) ? sampled : null;
+        const point: [number, number, number | null] = [lng, lat, elevation];
+        const previous = measurePointsRef.current;
+
+        // Start a fresh segment after two points; keep only the current measurement.
+        const next = previous.length >= 2 ? [point] : [...previous, point];
         measurePointsRef.current = next;
 
-        const marker = new maplibregl.Marker({ color: "#0f766e" })
-          .setLngLat([lng, lat])
-          .addTo(map);
-        measureMarkersRef.current.push(marker);
+        const lineSource = map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined;
+        if (lineSource) {
+          lineSource.setData({
+            type: "Feature",
+            properties: {},
+            geometry: {
+              type: "LineString",
+              coordinates: next.map(([x, y]) => [x, y]),
+            },
+          });
+        }
 
-        if (next.length >= 2) {
-          const [a, b] = [next[next.length - 2], next[next.length - 1]];
-          if (activeMeasure === "height") {
-            if (a[2] == null || b[2] == null) {
-              setMeasureResult("Elevasi tidak tersedia. Aktifkan terrain/DEM terlebih dahulu.");
-            } else {
-              setMeasureResult(`Selisih tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`);
-            }
-          } else {
-            const toRad = (v: number) => (v * Math.PI) / 180;
-            const R = 6371008.8;
-            const dLat = toRad(b[1] - a[1]);
-            const dLng = toRad(b[0] - a[0]);
-            const lat1 = toRad(a[1]);
-            const lat2 = toRad(b[1]);
-            const h = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
-            const distance = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
-            setMeasureResult(`${activeMeasure === "length" ? "Panjang" : "Lebar"}: ${distance >= 1000 ? (distance / 1000).toFixed(3) + " km" : distance.toFixed(2) + " m"}`);
-          }
+        if (next.length === 1) {
+          setMeasureResult("Klik titik kedua untuk menampilkan hasil.");
         } else {
-          setMeasureResult(activeMeasure === "height" ? "Klik titik kedua untuk menghitung selisih elevasi." : "Klik titik kedua untuk mengukur jarak.");
+          const [a, b] = next;
+          const toRad = (v: number) => (v * Math.PI) / 180;
+          const R = 6371008.8;
+          const dLat = toRad(b[1] - a[1]);
+          const dLng = toRad(b[0] - a[0]);
+          const lat1 = toRad(a[1]);
+          const lat2 = toRad(b[1]);
+          const h =
+            Math.sin(dLat / 2) ** 2 +
+            Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+          const distance = 2 * R * Math.asin(Math.min(1, Math.sqrt(h)));
+          const distanceText =
+            distance >= 1000
+              ? `${(distance / 1000).toFixed(3)} km`
+              : `${distance.toFixed(2)} m`;
+          const heightText =
+            a[2] == null || b[2] == null
+              ? "tidak tersedia (aktifkan terrain/DEM)"
+              : `${Math.abs(b[2] - a[2]).toFixed(2)} m`;
+          // A two-point line provides length and elevation difference.
+          // Width requires a third point or a defined polygon boundary.
+          setMeasureResult(
+            `Panjang: ${distanceText}\nLebar: perlu titik/batas tambahan\nTinggi: ${heightText}`,
+          );
         }
         return;
       }
@@ -336,7 +375,6 @@ export default function MapView({
       streetViewPickRef.current = false;
       setStreetViewPicking(false);
 
-      // Google Maps opens directly at the selected coordinates; no API key required.
       const { lat, lng } = event.lngLat;
       const url = `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`;
       window.open(url, "_blank", "noopener,noreferrer");
@@ -2068,45 +2106,44 @@ export default function MapView({
             }}
           >
             <div style={{ fontWeight: 700, marginBottom: 7 }}>Pengukuran</div>
-            <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-              {([
-                ["length", "Panjang"],
-                ["width", "Lebar"],
-                ["height", "Tinggi"],
-              ] as const).map(([mode, label]) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => {
-                    const nextMode = measureMode === mode ? null : mode;
-                    measureModeRef.current = nextMode;
-                    setMeasureMode(nextMode);
-                    measurePointsRef.current = [];
-                    setMeasureResult(nextMode ? "Klik dua titik pada peta." : "");
-                    measureMarkersRef.current.forEach((marker) => marker.remove());
-                    measureMarkersRef.current = [];
-                    if (nextMode) {
-                      streetViewPickRef.current = false;
-                      setStreetViewPicking(false);
-                    }
-                  }}
-                  aria-pressed={measureMode === mode}
-                  style={{
-                    padding: "5px 8px",
-                    borderRadius: 5,
-                    border: "1px solid #cbd5e1",
-                    background: measureMode === mode ? "#0f766e" : "#fff",
-                    color: measureMode === mode ? "#fff" : "#29485d",
-                    cursor: "pointer",
-                  }}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
+            <button
+              type="button"
+              onClick={() => {
+                const nextMode = measureMode ? null : "length";
+                measureModeRef.current = nextMode;
+                setMeasureMode(nextMode);
+                measurePointsRef.current = [];
+                setMeasureResult(nextMode ? "Klik dua titik pada peta." : "");
+                const source = mapRef.current?.getSource("measure-line") as
+                  | maplibregl.GeoJSONSource
+                  | undefined;
+                source?.setData({
+                  type: "Feature",
+                  properties: {},
+                  geometry: { type: "LineString", coordinates: [] },
+                });
+                measureMarkersRef.current.forEach((marker) => marker.remove());
+                measureMarkersRef.current = [];
+                if (nextMode) {
+                  streetViewPickRef.current = false;
+                  setStreetViewPicking(false);
+                }
+              }}
+              aria-pressed={!!measureMode}
+              style={{
+                padding: "6px 10px",
+                borderRadius: 5,
+                border: "1px solid #cbd5e1",
+                background: measureMode ? "#0f766e" : "#fff",
+                color: measureMode ? "#fff" : "#29485d",
+                cursor: "pointer",
+              }}
+            >
+              {measureMode ? "Ukur aktif" : "Ukur"}
+            </button>
             {measureMode && (
               <>
-                <div style={{ marginTop: 7, lineHeight: 1.4 }}>
+                <div style={{ marginTop: 7, lineHeight: 1.5, whiteSpace: "pre-line" }}>
                   {measureResult || "Klik dua titik pada peta."}
                 </div>
                 <button
@@ -2116,6 +2153,14 @@ export default function MapView({
                     setMeasureMode(null);
                     measurePointsRef.current = [];
                     setMeasureResult("");
+                    const source = mapRef.current?.getSource("measure-line") as
+                      | maplibregl.GeoJSONSource
+                      | undefined;
+                    source?.setData({
+                      type: "Feature",
+                      properties: {},
+                      geometry: { type: "LineString", coordinates: [] },
+                    });
                     measureMarkersRef.current.forEach((marker) => marker.remove());
                     measureMarkersRef.current = [];
                   }}
