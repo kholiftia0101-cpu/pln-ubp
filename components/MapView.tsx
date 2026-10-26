@@ -385,7 +385,7 @@ export default function MapView({
             : `Beda tinggi: ${Math.abs(last[2] - first[2]).toFixed(2)} m`;
         const lineLabel =
           next.length >= 2
-            ? `Panjang: ${formatDistance(totalMeters)}\\n${height}`
+            ? `Panjang: ${formatDistance(totalMeters)}\n${height}`
             : "Klik peta untuk menambahkan titik";
 
         (map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined)?.setData({
@@ -431,7 +431,7 @@ export default function MapView({
         if (next.length < 2) {
           setMeasureResult("Klik titik berikutnya untuk mulai mengukur.");
         } else {
-          setMeasureResult(`Panjang: ${formatDistance(totalMeters)}\\n${height}`);
+          setMeasureResult(`Panjang: ${formatDistance(totalMeters)}\n${height}`);
         }
         return;
       }
