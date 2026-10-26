@@ -380,7 +380,7 @@ export default function MapView({
                   a[2] == null || b[2] == null
                     ? "Beda tinggi: DEM tidak tersedia"
                     : `Beda tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
-                return `Panjang: ${distanceText}\\n${readableHeight}`;
+                return `Panjang: ${distanceText}\n${readableHeight}`;
               })()
             : "";
         if (lineSource) {
