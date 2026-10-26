@@ -293,9 +293,15 @@ export default function MapView({
           type: "geojson",
           data: {
             type: "Feature",
-            properties: {},
+            properties: { label: "" },
             geometry: { type: "LineString", coordinates: [] },
           },
+        });
+      }
+      if (!map.getSource("measure-points")) {
+        map.addSource("measure-points", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
         });
       }
       if (!map.getLayer("measure-line-layer")) {
@@ -304,9 +310,43 @@ export default function MapView({
           type: "line",
           source: "measure-line",
           paint: {
-            "line-color": "#0f766e",
-            "line-width": 4,
-            "line-dasharray": [2, 1],
+            "line-color": "#168b83",
+            "line-width": 3,
+            "line-opacity": 0.95,
+          },
+        });
+      }
+      if (!map.getLayer("measure-line-label")) {
+        map.addLayer({
+          id: "measure-line-label",
+          type: "symbol",
+          source: "measure-line",
+          layout: {
+            "symbol-placement": "line",
+            "text-field": ["get", "label"],
+            "text-size": 12,
+            "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+            "text-keep-upright": true,
+            "text-offset": [0, -0.8],
+          },
+          paint: {
+            "text-color": "#164e49",
+            "text-halo-color": "rgba(255,255,255,0.95)",
+            "text-halo-width": 2,
+          },
+        });
+      }
+      if (!map.getLayer("measure-points-layer")) {
+        map.addLayer({
+          id: "measure-points-layer",
+          type: "circle",
+          source: "measure-points",
+          paint: {
+            "circle-radius": 4,
+            "circle-color": "#8fd3ca",
+            "circle-stroke-color": "#ffffff",
+            "circle-stroke-width": 1.25,
+            "circle-opacity": 0.9,
           },
         });
       }
@@ -331,16 +371,41 @@ export default function MapView({
         measurePointsRef.current = next;
 
         const lineSource = map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined;
-        if (lineSource) {
-          lineSource.setData({
+        const pointsSource = map.getSource("measure-points") as maplibregl.GeoJSONSource | undefined;
+        const distanceLabel =
+          next.length >= 2
+            ? (() => {
+                const [a, b] = [next[0], next[1]];
+                const rad = (v: number) => (v * Math.PI) / 180;
+                const dLat = rad(b[1] - a[1]);
+                const dLng = rad(b[0] - a[0]);
+                const h =
+                  Math.sin(dLat / 2) ** 2 +
+                  Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
+                const meters = 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
+                return meters >= 1000 ? `${(meters / 1000).toFixed(2)} km` : `${meters.toFixed(2)} m`;
+              })()
+            : "";
+        lineSource?.setData({
+          type: "Feature",
+          properties: { label: distanceLabel },
+          geometry: {
+            type: "LineString",
+            coordinates: next.map(([x, y]) => [x, y]),
+          },
+        });
+        pointsSource?.setData({
+          type: "FeatureCollection",
+          features: next.map(([x, y], index) => ({
             type: "Feature",
-            properties: {},
-            geometry: {
-              type: "LineString",
-              coordinates: next.map(([x, y]) => [x, y]),
-            },
-          });
-        }
+            properties: { index: index + 1 },
+            geometry: { type: "Point", coordinates: [x, y] },
+          })),
+        });
+        // Keep the measurement graphic above every thematic/map layer.
+        ["measure-line-layer", "measure-line-label", "measure-points-layer"].forEach((id) => {
+          if (map.getLayer(id)) map.moveLayer(id);
+        });
 
         if (next.length === 1) {
           setMeasureResult("Klik titik kedua untuk menampilkan hasil.");
@@ -2111,7 +2176,6 @@ export default function MapView({
               fontSize: 12,
             }}
           >
-            <div style={{ fontWeight: 700, marginBottom: 7 }}>Pengukuran</div>
             <button
               type="button"
               onClick={() => {
@@ -2119,19 +2183,20 @@ export default function MapView({
                 measureModeRef.current = nextMode;
                 setMeasureMode(nextMode);
                 measurePointsRef.current = [];
-                setMeasureResult(nextMode ? "Klik dua titik pada peta." : "");
-                const source = mapRef.current?.getSource("measure-line") as
+                setMeasureResult("");
+                const lineSource = mapRef.current?.getSource("measure-line") as
                   | maplibregl.GeoJSONSource
                   | undefined;
-                source?.setData({
+                const pointsSource = mapRef.current?.getSource("measure-points") as
+                  | maplibregl.GeoJSONSource
+                  | undefined;
+                lineSource?.setData({
                   type: "Feature",
-                  properties: {},
+                  properties: { label: "" },
                   geometry: { type: "LineString", coordinates: [] },
                 });
-                measureMarkersRef.current.forEach((marker) => marker.remove());
-                measureMarkersRef.current = [];
+                pointsSource?.setData({ type: "FeatureCollection", features: [] });
                 if (nextMode) {
-                  // Tutup popup yang sedang terbuka dan nonaktifkan Street View.
                   featurePopupRef.current?.remove();
                   featurePopupRef.current = null;
                   streetViewPickRef.current = false;
@@ -2139,56 +2204,22 @@ export default function MapView({
                 }
               }}
               aria-pressed={!!measureMode}
+              aria-label={measureMode ? "Matikan Measure" : "Aktifkan Measure"}
               style={{
-                padding: "6px 10px",
-                borderRadius: 5,
+                minWidth: 84,
+                minHeight: 42,
+                padding: "9px 14px",
+                borderRadius: 7,
                 border: "1px solid #cbd5e1",
-                background: measureMode ? "#0f766e" : "#fff",
-                color: measureMode ? "#fff" : "#29485d",
+                background: measureMode ? "#0f766e" : "#ffffff",
+                color: measureMode ? "#ffffff" : "#29485d",
+                fontWeight: 600,
                 cursor: "pointer",
+                touchAction: "manipulation",
               }}
             >
-              {measureMode ? "Ukur aktif" : "Ukur"}
+              Measure
             </button>
-            {measureMode && (
-              <>
-                <div style={{ marginTop: 7, lineHeight: 1.5, whiteSpace: "pre-line" }}>
-                  {measureResult || "Klik dua titik pada peta."}
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    measureModeRef.current = null;
-                    setMeasureMode(null);
-                    measurePointsRef.current = [];
-                    setMeasureResult("");
-                    const source = mapRef.current?.getSource("measure-line") as
-                      | maplibregl.GeoJSONSource
-                      | undefined;
-                    source?.setData({
-                      type: "Feature",
-                      properties: {},
-                      geometry: { type: "LineString", coordinates: [] },
-                    });
-                    measureMarkersRef.current.forEach((marker) => marker.remove());
-                    measureMarkersRef.current = [];
-                    featurePopupRef.current?.remove();
-                    featurePopupRef.current = null;
-                  }}
-                  style={{
-                    marginTop: 7,
-                    padding: "5px 8px",
-                    border: "1px solid #cbd5e1",
-                    borderRadius: 5,
-                    background: "#fff",
-                    color: "#29485d",
-                    cursor: "pointer",
-                  }}
-                >
-                  Selesai / Hapus
-                </button>
-              </>
-            )}
           </div>
 
           <div className="map-tools-stack">
