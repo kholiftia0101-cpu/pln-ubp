@@ -304,9 +304,29 @@ export default function MapView({
           type: "line",
           source: "measure-line",
           paint: {
-            "line-color": "#0f766e",
-            "line-width": 4,
-            "line-dasharray": [2, 1],
+            "line-color": "#087f8c",
+            "line-width": 3,
+            "line-opacity": 1,
+          },
+        });
+      }
+      if (!map.getLayer("measure-line-label")) {
+        map.addLayer({
+          id: "measure-line-label",
+          type: "symbol",
+          source: "measure-line",
+          layout: {
+            "symbol-placement": "line",
+            "text-field": ["get", "label"],
+            "text-size": 12,
+            "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
+            "text-keep-upright": true,
+            "text-offset": [0, -0.7],
+          },
+          paint: {
+            "text-color": "#164e49",
+            "text-halo-color": "rgba(255,255,255,0.96)",
+            "text-halo-width": 2,
           },
         });
       }
@@ -331,10 +351,26 @@ export default function MapView({
         measurePointsRef.current = next;
 
         const lineSource = map.getSource("measure-line") as maplibregl.GeoJSONSource | undefined;
+        const lineLabel =
+          next.length >= 2
+            ? (() => {
+                const [a, b] = [next[0], next[1]];
+                const rad = (v: number) => (v * Math.PI) / 180;
+                const dLat = rad(b[1] - a[1]);
+                const dLng = rad(b[0] - a[0]);
+                const h =
+                  Math.sin(dLat / 2) ** 2 +
+                  Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
+                const meters = 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
+                return meters >= 1000
+                  ? `${(meters / 1000).toFixed(2)} km`
+                  : `${meters.toFixed(2)} m`;
+              })()
+            : "";
         if (lineSource) {
           lineSource.setData({
             type: "Feature",
-            properties: {},
+            properties: { label: lineLabel },
             geometry: {
               type: "LineString",
               coordinates: next.map(([x, y]) => [x, y]),
@@ -2161,20 +2197,6 @@ export default function MapView({
                 <path d="m7 13 2 2m1-6 2 2m1-6 2 2m-6 10 2 2" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
               </svg>
             </button>
-            {measureMode && (
-              <div
-                style={{
-                  padding: "8px 10px",
-                  borderRadius: 8,
-                  background: "rgba(255,255,255,0.96)",
-                  color: "#29485d",
-                  fontSize: 12,
-                  boxShadow: "0 2px 10px rgba(0,0,0,0.16)",
-                }}
-              >
-                Tap peta untuk mengukur · tap ikon lagi untuk selesai
-              </div>
-            )}
           </div>
 
           <div className="map-tools-stack">
