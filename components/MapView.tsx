@@ -381,7 +381,7 @@ export default function MapView({
         const last = next[next.length - 1];
         const height =
           first[2] == null || last[2] == null
-            ? "Beda tinggi: DEM tidak tersedia"
+            ? "Beda tinggi: Aktifkan Terrain 3D!"
             : `Beda tinggi: ${Math.abs(last[2] - first[2]).toFixed(2)} m`;
         const lineLabel =
           next.length >= 2
