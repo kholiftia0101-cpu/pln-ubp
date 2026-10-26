@@ -378,7 +378,7 @@ export default function MapView({
                     : `${meters.toFixed(2)} m`;
                 const readableHeight =
                   a[2] == null || b[2] == null
-                    ? "Beda tinggi: Aktifkan Terrain 3D!"
+                    ? "Beda tinggi: DEM tidak tersedia"
                     : `Beda tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
                 return `Panjang: ${distanceText}\n${readableHeight}`;
               })()
@@ -2127,8 +2127,8 @@ export default function MapView({
                 padding: 0,
                 border: streetViewPicking ? "1px solid #087f8c" : "1px solid #d7e0e5",
                 borderRadius: 6,
-                background: streetViewPicking ? "#29485d" : "#29485d",
-                color: "#fff",
+                background: streetViewPicking ? "#29485d" : "#ffffff",
+                color: streetViewPicking ? "#ffffff" : "#29485d",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
                 cursor: "pointer",
               }}
@@ -2175,7 +2175,7 @@ export default function MapView({
             style={{
               position: "absolute",
               right: 16,
-              bottom: 252,
+              bottom: 302,
               zIndex: 40,
               display: "flex",
               alignItems: "center",
@@ -2221,8 +2221,8 @@ export default function MapView({
                 padding: 0,
                 border: measureMode ? "1px solid #78c9bd" : "1px solid #d7e0e5",
                 borderRadius: 7,
-                background: "#29485d",
-                color: "#fff",
+                background: measureMode ? "#29485d" : "#ffffff",
+                color: measureMode ? "#ffffff" : "#29485d",
                 boxShadow: "0 1px 4px rgba(0,0,0,0.22)",
                 cursor: "pointer",
                 touchAction: "manipulation",
