@@ -164,6 +164,19 @@ const initialDigitasiLayers = Object.fromEntries(
   ]),
 ) as Record<DigitasiKey, boolean>;
 
+function measureDistanceMeters(a: [number, number], b: [number, number]) {
+  const toRad = (value: number) => (value * Math.PI) / 180;
+  const earthRadius = 6371008.8;
+  const dLat = toRad(b[1] - a[1]);
+  const dLng = toRad(b[0] - a[0]);
+  const lat1 = toRad(a[1]);
+  const lat2 = toRad(b[1]);
+  const h =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLng / 2) ** 2;
+  return 2 * earthRadius * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
 export default function MapView({
   username,
   onLogout,
@@ -210,6 +223,11 @@ export default function MapView({
   const [terrainOn, setTerrainOn] = useState(false);
   const [activeLayerTab, setActiveLayerTab] = useState<"data" | "terrain">("data");
   const [activeTerrain, setActiveTerrain] = useState<"aws" | "dtm" | null>(null);
+  const [measureMode, setMeasureMode] = useState<"length" | "width" | "height" | null>(null);
+  const [measureResultMode, setMeasureResultMode] = useState<"length" | "width" | "height" | null>(null);
+  const [measurePoints, setMeasurePoints] = useState<Array<{ lng: number; lat: number; elevation: number | null }>>([]);
+  const measureModeRef = useRef<"length" | "width" | "height" | null>(null);
+  const measurePointsRef = useRef<Array<{ lng: number; lat: number; elevation: number | null }>>([]);
 
   const [zoomLevel, setZoomLevel] = useState(14.2);
 
@@ -282,6 +300,24 @@ export default function MapView({
     mapRef.current = map;
 
     map.on("click", (event) => {
+      const mode = measureModeRef.current;
+      if (mode) {
+        const { lng, lat } = event.lngLat;
+        const elevation = map.queryTerrainElevation
+          ? map.queryTerrainElevation([lng, lat], { exaggerated: false })
+          : null;
+        const next = [...measurePointsRef.current, { lng, lat, elevation: Number.isFinite(elevation) ? elevation ?? null : null }].slice(-2);
+        measurePointsRef.current = next;
+        setMeasurePoints(next);
+        setMeasureResultMode(mode);
+        if (next.length === 2) {
+          measureModeRef.current = null;
+          setMeasureMode(null);
+          map.getCanvas().style.cursor = "";
+        }
+        return;
+      }
+
       if (!streetViewPickRef.current) return;
       streetViewPickRef.current = false;
       setStreetViewPicking(false);
@@ -957,6 +993,27 @@ export default function MapView({
     // Tidak mengubah center atau zoom; posisi pengguna tetap dipertahankan.
 
     setOrthophotoOn(turningOn);
+  }
+
+  function startMeasurement(mode: "length" | "width" | "height") {
+    const map = mapRef.current;
+    if (!map) return;
+    measureModeRef.current = mode;
+    measurePointsRef.current = [];
+    setMeasureMode(mode);
+    setMeasurePoints([]);
+    setMeasureResultMode(mode);
+    map.getCanvas().style.cursor = "crosshair";
+  }
+
+  function clearMeasurement() {
+    const map = mapRef.current;
+    measureModeRef.current = null;
+    measurePointsRef.current = [];
+    setMeasureMode(null);
+    setMeasurePoints([]);
+    setMeasureResultMode(null);
+    if (map) map.getCanvas().style.cursor = "";
   }
 
   function activateTerrain(kind: "aws" | "dtm" | null) {
@@ -1864,6 +1921,51 @@ export default function MapView({
                         <strong style={{ display: "block", fontSize: 13 }}>DTM Lokal</strong>
                       </span>
                     </button>
+
+                    <div style={{ marginTop: 4, padding: "10px", border: "1px solid #dce7eb", borderRadius: 10, background: "#fff" }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "1px", color: "#168aa4", marginBottom: 8 }}>
+                        PENGUKURAN
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 6 }}>
+                        {([ ["length", "Panjang"], ["width", "Lebar"], ["height", "Tinggi"] ] as const).map(([mode, label]) => (
+                          <button
+                            key={mode}
+                            type="button"
+                            onClick={() => startMeasurement(mode)}
+                            aria-pressed={measureMode === mode}
+                            style={{ padding: "8px 5px", borderRadius: 8, border: measureMode === mode ? "1px solid #159bb2" : "1px solid #dce7eb", background: measureMode === mode ? "#f2fafb" : "#fff", color: "#385667", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+                          >{label}</button>
+                        ))}
+                      </div>
+                      {measureMode && (
+                        <div style={{ marginTop: 8, fontSize: 11, color: "#647887", lineHeight: 1.45 }}>
+                          Klik dua titik pada peta untuk mengukur {measureMode === "length" ? "panjang" : measureMode === "width" ? "lebar" : "beda tinggi"}.
+                        </div>
+                      )}
+                      {measurePoints.length === 2 && (
+                        <div style={{ marginTop: 8, fontSize: 12, color: "#284456", lineHeight: 1.6 }}>
+                          {measureMode === null && measurePoints.length === 2 && (
+                            <>
+                              <strong>{measureResultMode === "height" ? "Beda tinggi: " : measureResultMode === "width" ? "Lebar: " : "Panjang: "}</strong>
+                              {(() => {
+                                const [a, b] = measurePoints;
+                                const distance = measureDistanceMeters([a.lng, a.lat], [b.lng, b.lat]);
+                                if (measureResultMode === "height") {
+                                  if (a.elevation === null || b.elevation === null) return "Elevasi tidak tersedia pada DEM ini";
+                                  return Math.abs(b.elevation - a.elevation).toLocaleString("id-ID", { maximumFractionDigits: 2 }) + " m";
+                                }
+                                return distance.toLocaleString("id-ID", { maximumFractionDigits: 2 }) + " m";
+                              })()}
+                            </>
+                          )}
+                        </div>
+                      )}
+                      {measurePoints.length > 0 && (
+                        <button type="button" onClick={clearMeasurement} style={{ marginTop: 8, padding: "6px 9px", border: "1px solid #dce7eb", borderRadius: 7, background: "#f8fafb", color: "#526b76", fontSize: 11, cursor: "pointer" }}>
+                          Hapus / ukur lagi
+                        </button>
+                      )}
+                    </div>
 
                     <button
                       type="button"
