@@ -298,6 +298,12 @@ export default function MapView({
           },
         });
       }
+      if (!map.getSource("measure-label-point")) {
+        map.addSource("measure-label-point", {
+          type: "geojson",
+          data: { type: "FeatureCollection", features: [] },
+        });
+      }
       if (!map.getLayer("measure-line-layer")) {
         map.addLayer({
           id: "measure-line-layer",
@@ -314,22 +320,23 @@ export default function MapView({
         map.addLayer({
           id: "measure-line-label",
           type: "symbol",
-          source: "measure-line",
+          source: "measure-label-point",
           layout: {
-            "symbol-placement": "line",
+            "symbol-placement": "point",
             "text-field": ["get", "label"],
-            "text-size": 14,
+            "text-size": 13,
             "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
-            "text-keep-upright": true,
-            "text-offset": [0, -0.7],
-            "text-max-width": 28,
+            "text-anchor": "center",
+            "text-justify": "center",
+            "text-line-height": 1.2,
+            "text-max-width": 24,
             "text-allow-overlap": true,
             "text-ignore-placement": true,
           },
           paint: {
             "text-color": "#164e49",
-            "text-halo-color": "rgba(255,255,255,0.96)",
-            "text-halo-width": 3,
+            "text-halo-color": "rgba(255,255,255,0.98)",
+            "text-halo-width": 2.5,
           },
         });
       }
@@ -369,15 +376,11 @@ export default function MapView({
                   meters >= 1000
                     ? `${(meters / 1000).toFixed(2)} km`
                     : `${meters.toFixed(2)} m`;
-                const heightText =
-                  a[2] == null || b[2] == null
-                    ? "ΔH: DEM tidak tersedia"
-                    : `ΔH: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
                 const readableHeight =
                   a[2] == null || b[2] == null
                     ? "Beda tinggi: DEM tidak tersedia"
                     : `Beda tinggi: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
-                return `Panjang: ${distanceText}  |  ${readableHeight}`;
+                return `Panjang: ${distanceText}\\n${readableHeight}`;
               })()
             : "";
         if (lineSource) {
@@ -390,6 +393,26 @@ export default function MapView({
             },
           });
         }
+        const labelSource = map.getSource("measure-label-point") as
+          | maplibregl.GeoJSONSource
+          | undefined;
+        labelSource?.setData({
+          type: "FeatureCollection",
+          features:
+            next.length >= 2
+              ? [{
+                  type: "Feature",
+                  properties: { label: lineLabel },
+                  geometry: {
+                    type: "Point",
+                    coordinates: [
+                      (next[0][0] + next[1][0]) / 2,
+                      (next[0][1] + next[1][1]) / 2,
+                    ],
+                  },
+                }]
+              : [],
+        });
 
         if (next.length === 1) {
           setMeasureResult("Klik titik kedua untuk menampilkan hasil.");
