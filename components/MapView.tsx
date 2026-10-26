@@ -322,6 +322,8 @@ export default function MapView({
             "text-font": ["Open Sans Semibold", "Arial Unicode MS Bold"],
             "text-keep-upright": true,
             "text-offset": [0, -0.7],
+            "text-line-height": 1.15,
+            "text-max-width": 14,
           },
           paint: {
             "text-color": "#164e49",
@@ -362,9 +364,15 @@ export default function MapView({
                   Math.sin(dLat / 2) ** 2 +
                   Math.cos(rad(a[1])) * Math.cos(rad(b[1])) * Math.sin(dLng / 2) ** 2;
                 const meters = 2 * 6371008.8 * Math.asin(Math.min(1, Math.sqrt(h)));
-                return meters >= 1000
-                  ? `${(meters / 1000).toFixed(2)} km`
-                  : `${meters.toFixed(2)} m`;
+                const distanceText =
+                  meters >= 1000
+                    ? `${(meters / 1000).toFixed(2)} km`
+                    : `${meters.toFixed(2)} m`;
+                const heightText =
+                  a[2] == null || b[2] == null
+                    ? "ΔH: DEM tidak tersedia"
+                    : `ΔH: ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
+                return `Panjang ${distanceText}\n${heightText}`;
               })()
             : "";
         if (lineSource) {
@@ -398,12 +406,12 @@ export default function MapView({
               : `${distance.toFixed(2)} m`;
           const heightText =
             a[2] == null || b[2] == null
-              ? "tidak tersedia (aktifkan terrain/DEM)"
-              : `${Math.abs(b[2] - a[2]).toFixed(2)} m`;
+              ? "DEM belum terbaca (aktifkan Terrain/DEM)"
+              : `ΔH ${Math.abs(b[2] - a[2]).toFixed(2)} m`;
           // A two-point line provides length and elevation difference.
           // Width requires a third point or a defined polygon boundary.
           setMeasureResult(
-            `Panjang: ${distanceText}\nLebar: perlu titik/batas tambahan\nTinggi: ${heightText}`,
+            `Panjang: ${distanceText}\nBeda tinggi: ${heightText}`,
           );
         }
         return;
