@@ -13,6 +13,8 @@ type DigitasiKey =
   | "pagar"
   | "pipa-esdm"
   | "pipa-spp"
+  | "opsi-jalur-pipa-1"
+  | "opsi-jalur-pipa-2"
   | "rawa"
   | "rel-ka"
   | "selokan"
@@ -95,6 +97,20 @@ const digitasiLayers: DigitasiLayer[] = [
     color: "#9b8acb",
   },
 
+  {
+    key: "opsi-jalur-pipa-1",
+    label: "Opsi Jalur Pipa 1",
+    file: "Opsi Jalur Pipa 1.geojson",
+    color: "#00a6a6",
+  },
+
+  {
+    key: "opsi-jalur-pipa-2",
+    label: "Opsi Jalur Pipa 2",
+    file: "Opsi Jalur Pipa 2.geojson",
+    color: "#e0a12f",
+  },
+
   { key: "rawa", label: "Rawa", file: "Rawa.geojson", color: "#55b895" },
 
   {
@@ -150,6 +166,11 @@ const digitasiGroups: { title: string; keys: DigitasiKey[] }[] = [
 
   { title: "Jaringan Pipa", keys: ["pipa-esdm", "pipa-spp"] },
 
+  {
+    title: "Opsi Jalur Pipa",
+    keys: ["opsi-jalur-pipa-1", "opsi-jalur-pipa-2"],
+  },
+
   { title: "Tutupan Lahan", keys: ["lahan-terbuka"] },
 
   { title: "Struktur", keys: ["pagar", "sempadan-sungai"] },
@@ -160,7 +181,13 @@ const digitasiGroups: { title: string; keys: DigitasiKey[] }[] = [
 const initialDigitasiLayers = Object.fromEntries(
   digitasiLayers.map((layer) => [
     layer.key,
-    !["kontur-mayor", "kontur-minor", "bm"].includes(layer.key),
+    ![
+      "kontur-mayor",
+      "kontur-minor",
+      "bm",
+      "opsi-jalur-pipa-1",
+      "opsi-jalur-pipa-2",
+    ].includes(layer.key),
   ]),
 ) as Record<DigitasiKey, boolean>;
 
@@ -1655,6 +1682,8 @@ export default function MapView({
                     "pagar",
                     "pipa-esdm",
                     "pipa-spp",
+                    "opsi-jalur-pipa-1",
+                    "opsi-jalur-pipa-2",
                     "rel-ka",
                     "selokan",
                     "sungai",
