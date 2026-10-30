@@ -16,6 +16,8 @@ const ALLOWED_FILES = new Set([
   "Pagar.geojson",
   "Pipa ESDM.geojson",
   "Pipa SPP.geojson",
+  "Opsi Jalur Pipa 1.geojson",
+  "Opsi Jalur Pipa 2.geojson",
   "Rawa.geojson",
   "Rel KA.geojson",
   "Selokan.geojson",
