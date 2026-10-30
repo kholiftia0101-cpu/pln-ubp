@@ -944,11 +944,17 @@ export default function MapView({
     digitasiLayers.forEach((item) => {
       const visibility = digitasiVisibility[item.key] ? "visible" : "none";
 
-      ["fill", "line-casing", "line", "point"].forEach((kind) => {
-        const id = `digitasi-${item.key}-${kind}`;
+      // Sertakan outline poligon khusus Bangunan agar ikut mati saat layer dinonaktifkan.
+      const layerKinds =
+        item.key === "bangunan"
+          ? ["fill", "line-casing", "line", "point", "line-polygon-outline"]
+          : ["fill", "line-casing", "line", "point"];
 
-        if (map.getLayer(id))
+      layerKinds.forEach((kind) => {
+        const id = `digitasi-${item.key}-${kind}`;
+        if (map.getLayer(id)) {
           map.setLayoutProperty(id, "visibility", visibility);
+        }
       });
     });
   }, [digitasiVisibility]);
